@@ -24,8 +24,347 @@
   <body>
     <div class="reveal">
       <div class="slides">
-        <section>Slide 1</section>
-        <section>Slide 2</section>
+        <section data-markdown data-separator="^\n---$" data-separator-vertical="^\n>>>$">
+          <script type="text/template">
+## 効果的なC++の書き方入門
+
+齋藤 昂也
+
+---
+### C++って？
+- - -
+- 特徴
+    - C との互換性を重視している
+    - ゼロオーバーヘッド原則
+        - （上手く書けば）速い
+    - 静的型付け言語
+        - （上手く書けば）エラーをコンパイル時に検出できる
+
+---
+### C++って？
+- - -
+- 特徴つづき
+    - 言語組み込みのGCがない
+    - 未定義動作
+    - 上手く書かないと恩恵を受けづらい
+    - むずかしい
+
+---
+### コンテナ
+
+---
+### コンテナ
+- - -
+- 標準ライブラリの一部
+- 配列，連想配列などの基本的なデータ構造を提供する
+- テンプレートを使って書かれているため，型安全
+
+>>>
+### コンテナ
+- - -
+```C++
+std::vector<int> vec = {1, 2, 3};  // 配列
+vec[0] += 1;  // 添字アクセス
+vec.push_back(4);  // 4 を追加
+for (int i : vec) {  // range-based for
+    std::cout << i << std::endl;
+}
+```
+
+>>>
+### コンテナ
+- - -
+```C++
+std::unordered_map<std::string, int> dict;  // 連想配列
+dict["hoge"] = 23;
+for (auto x : dict) {
+    std::cout << "key: " << x.first << ", "
+              << "value: " << x.second << std::endl;
+}
+```
+
+---
+### const
+
+---
+### const
+- - -
+- 変更できないことを表す型修飾子
+- const がついた変数を変更しようとするとコンパイルエラーになる
+- 数学的な意味での「定数」である必要はない
+- 意図しない変数の変更を防げるので安全性が高くなる
+
+>>>
+### const
+- - -
+```C++
+const int i = 42;
+int j = i + 1;  // OK, i は変更されない
+i += 1; // エラー
+i = 23; // エラー
+```
+
+>>>
+### const
+- - -
+```C++
+const std::vector<double> v = read_file("hoge.txt");
+const int n = v.size();
+double sum = 0;
+for (int i = 0; i < n; ++i) {
+    sum += v[i];
+}
+const double mean = sum / n;
+std::cout << mean << std::endl;
+```
+
+---
+### 参照
+
+---
+### 参照
+- - -
+- 変数の別名を作る機能
+
+>>>
+### 参照
+- - -
+#### 参照を使わない例
+
+```C++
+std::vector<int> v1 = {1, 2, 3};
+std::vector<int> v2 = v1;  // v2 は v1 のコピーになる
+v2.push_back(4);  // v1 は変化しない
+std::vector<int> v3 = {2, 3, 5};
+v2 = v3;  // v2 に v3 の中身が代入される（v1 は変化しない）
+```
+
+>>>
+### 参照
+- - -
+#### 参照を使った例
+
+```C++
+std::vector<int> v1 = {1, 2, 3};
+std::vector<int>& v2 = v1;  // v2 は v1 の別名になる
+v2.push_back(4);  // v1 も変化する
+std::vector<int> v3 = {2, 3, 5};
+v2 = v3;  // v1 も変化する（v2 が v3 の別名になったりはしない）
+```
+
+---
+### 参照
+- - -
+- 何が便利なの？
+    - 関数の引数に使える
+        - 変数のコピーを抑制できる
+        - 関数の中から関数の外の変数を書き換えられる
+    - ポインタと違い，ぶら下がり参照が起きにくい
+
+>>>
+### 参照
+- - -
+#### 参照を使わない例
+
+```C++
+int sum(const std::vector<int> vec) {
+    int result = 0;
+    for (const int val : vec) {
+        result += val;
+    }
+    return result;
+}
+```
+
+`sum` を呼ぶたびにコピーが生成されて非効率的
+
+>>>
+### 参照
+- - -
+#### 参照を使った例
+
+```C++
+int sum(const std::vector<int>& vec) {
+    int result = 0;
+    for (const int val : vec) {
+        result += val;
+    }
+    return result;
+}
+```
+
+無駄なコピーが生成されないので効率的
+
+>>>
+### 参照
+- - -
+#### 参照経由で変数を書き換える例
+```C++
+void twice(std::vector<int>& vec) {
+    for (int& x : vec) {
+        x *= 2;
+    }
+}
+
+int main() {
+    std::vector<int> vec = {1, 2, 3};
+    twice(vec);
+    std::cout << vec[0] << std::endl;  // 2
+}
+```
+
+>>>
+### 参照
+- - -
+#### ポインタを使ってぶら下がり参照で死ぬ例
+
+```C++
+std::vector<int>* p;
+{
+    std::vector<int> v = {1, 2, 3};
+    p = &v;
+}  // ここで v の寿命が尽きる
+std::cout << (*p)[0] << std::endl;  // 未定義動作！
+```
+
+参照では参照先を変更できないので，こうは書けない
+
+---
+### スマートポインタ
+
+---
+### スマートポインタ
+- - -
+- 標準ライブラリの一部
+- より安全なポインタ
+- C++ に（擬似的な）GCを提供
+- 幾つか種類があるが，ここでは `std::shared_ptr` を紹介
+
+>>>
+### スマートポインタ
+- - -
+```C++
+std::shared_ptr<std::vector<int>> p;
+{
+    // shared_ptr で管理するオブジェクトを作る
+    auto p2 = std::make_shared<std::vector<int>>();
+    p = p2;  // p の参照先を p2 と同じオブジェクトに設定
+    *p2 = {1, 2, 3};  // *p も書き換わる
+}  // ここで p2 の寿命は終わるが，中身は p に共有されている
+std::cout << (*p)[0] << std::endl;  // 問題なし
+```
+
+>>>
+### スマートポインタ
+- - -
+- ローカル変数をスマートポインタで管理させることは出来ない
+
+```C++
+std::vector<int> vec = {1, 2, 3};
+// std::shared_ptr<std::vector<int>> p = &vec;  // ダメ
+auto p = std::make_shared<std::vector<int>>(vec);  // おｋ，ただし vec と *p は別物
+p->push_back(4);  // vec は変化しない
+```
+
+>>>
+### スマートポインタ
+- - -
+- `new` で作ったオブジェクトを管理することは可能
+
+```C++
+std::vector<int>* p = new std::vector<int>{1, 2, 3};
+std::shared_ptr<std::vector<int>> sp(p);  // おｋ， *p と *sp は同じオブジェクト
+// delete p;  // 書いちゃダメ， delete は shared_ptr がやる
+```
+
+- ただし，基本的には `std::make_shared` を使うべき
+
+---
+### クラス
+
+---
+### クラス
+- - -
+- 基本的には構造体のすごいものと思っていい
+    - というか言語仕様的に構造体とクラスの区別は無い
+    - `std::vector` とか `std::shared_ptr` もクラス
+    - `public` や `private` を使えるのが便利
+    - `int` のように振る舞わせよ
+- `virtual` を使う場合は
+    - デストラクタを `virtual` にする
+    - コピーを禁止する
+    - `shared_ptr` と組み合わせると便利
+
+>>>
+### クラス
+- - -
+```C++
+struct stack {
+    stack() {
+    }
+
+    void push(int val) {
+        vec_.push_back(val);
+    }
+    int pop() {
+        int result = vec_.back();
+        vec_.pop_back();
+        return result;
+    }
+
+    bool empty() const {
+        return vec_.empty();
+    }
+
+ private:
+    std::vector<int> vec_;
+};
+```
+
+>>>
+### クラス
+- - -
+```C++
+struct hoge {
+    hoge() {}
+    virtual ~hoge() {}
+
+    hoge(const hoge&) = delete;
+    void operator=(const hoge&) = delete;
+
+    virtual void foo() = 0;
+};
+```
+
+---
+### 分割コンパイル
+
+---
+### 分割コンパイル
+- - -
+- クラス毎に分けるのが基本
+- pImpl イディオムが便利
+    - ヘッダファイルに `private` メンバを書かなくて済む
+- ビルドシステムは waf がおすすめ
+    - 単体テストとかも楽に書ける
+    - 詳しくは「waf python」で検索
+
+---
+### その他
+
+---
+### その他
+- - -
+- move
+- ラムダ式
+- テンプレート
+- 演算子多重定義
+
+---
+### 終わり
+
+          </script>
+        </section>
       </div>
     </div>
 
